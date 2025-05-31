@@ -80,9 +80,9 @@ This project currently implements the following Git subsystem commands:
   - `.git/objects/` - Directory for all Git objects (blobs, commits, trees)
   - `.git/refs/` - Directory for storing references to branches
   - `.git/HEAD` - File pointing to the default branch (`ref: refs/heads/main)
-* `git hash-object -w <file>`
-  Writes a blob object to the Git object store, computing and returning
-  the SHA-1 hash of the content
 * `git cat-file -p <hash>`
   Reads and pretty-prints the contents of a Git object to standard
-  output (current supports only blob objects).    
+  output (current supports only blob objects).   
+* `git hash-object -w <file>`
+  Writes a blob object to the Git object store, computing and returning
+  the SHA-1 hash of the content   
