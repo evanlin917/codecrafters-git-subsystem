@@ -58,3 +58,31 @@ alias mygit=/path/to/your/repo/your_program.sh
 mkdir -p /tmp/testing && cd /tmp/testing
 mygit init
 ```
+
+# Alternative Testing
+A majority of the code in this project can only be tested and submitted
+using the Codecrafters CLI or Git systems if one has a paid membership.
+Thus, a local testing script has been creaated to test the functionality
+of the code locally, by running the command:
+```sh
+./test_git_implementation.sh
+```
+
+This script runs tests against all the Git subsystem commands implemented
+so far (e.g. `init`, `hash-object`, `cat-file`) to help verify your implementation.
+
+# Git Subsystem Features Implemented
+This project currently implements the following Git subsystem commands:
+* `git init`
+  Initializes a new Git repository by creating the `.git` directory 
+  along with the minimum structure required, such as:
+  - `.git/` - Root directory for Git metadata
+  - `.git/objects/` - Directory for all Git objects (blobs, commits, trees)
+  - `.git/refs/` - Directory for storing references to branches
+  - `.git/HEAD` - File pointing to the default branch (`ref: refs/heads/main)
+* `git hash-object -w <file>`
+  Writes a blob object to the Git object store, computing and returning
+  the SHA-1 hash of the content
+* `git cat-file -p <hash>`
+  Reads and pretty-prints the contents of a Git object to standard
+  output (current supports only blob objects).    
