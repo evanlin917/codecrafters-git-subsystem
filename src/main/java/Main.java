@@ -2,7 +2,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.zip.Inflater;
+import java.util.zip.Deflater;
 import java.io.ByteArrayOutputStream;
+import java.security.MessageDigest;
 
 public class Main {
   public static void main(String[] args){
@@ -30,7 +32,7 @@ public class Main {
       }
       case "cat-file" -> {
         if (args.length < 3) {
-          System.out.println("Usage: cat-file <type> <object>");
+          System.out.println("Usage: cat-file -p <object>");
           return;
         }
 
@@ -83,6 +85,74 @@ public class Main {
           System.out.println("Error reading object: " + e.getMessage());
         } catch (Exception e) {
           System.out.println("Error decompressing object: " + e.getMessage());
+        }
+      }
+      case "hash-object" -> {
+        if (args.length < 3) {
+          System.out.println("Usage: hash-object -w <file>");
+          return;
+        }
+
+        if (!args[1].equals("-w")) {
+          System.out.println("Unsupported option: " + args[1]);
+          return;
+        }
+
+        final String filePath = args[2];
+        final File file = new File(filePath);
+        if (!file.exists() || !file.isFile()) {
+          System.out.println("File not found: " + filePath);
+          return;
+        }
+
+        try {
+          byte[] content = Files.readAllBytes(file.toPath());
+
+          String header = "blob " + content.length + "\0";
+          byte[] headerBytes = header.getBytes("UTF-8");
+
+          byte[] blob = new byte[headerBytes.length + content.length];
+          System.arraycopy(headerBytes, 0, blob, 0, headerBytes.length);
+          System.arraycopy(content, 0, blob, headerBytes.length, content.length);
+
+          MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+          byte[] hash = sha1.digest(blob);
+          StringBuilder hexHash = new StringBuilder();
+          for (byte b : hash) {
+            hexHash.append(String.format("%02x", b));
+          }
+
+          String hashStr = hexHash.toString();
+          String dir = hashStr.substring(0, 2);
+          String fileName = hashStr.substring(2);
+
+          Deflater deflater = new Deflater();
+          deflater.setInput(blob);
+          deflater.finish();
+
+          ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
+          byte[] buffer = new byte[1024];
+          while (!deflater.finished()) {
+            int count = deflater.deflate(buffer);
+            compressedOutput.write(buffer, 0, count);
+          }
+          deflater.end();
+          byte[] compressedBlob = compressedOutput.toByteArray();
+
+          File objectDir = new File(".git/objects/" + dir);
+          objectDir.mkdirs();
+
+          File objectFile = new File(objectDir, fileName);
+          if (!objectFile.exists()) {
+            Files.write(objectFile.toPath(), compressedBlob);
+          }
+
+          System.out.print(hashStr);
+        }
+        catch (IOException e) {
+          System.out.println("Error reading file: " + e.getMessage());
+        } catch (Exception e) {
+          System.out.println("Error hashing object: " + e.getMessage());
         }
       }
       default -> System.out.println("Unknown command: " + command);
