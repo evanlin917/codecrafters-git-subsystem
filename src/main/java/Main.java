@@ -75,9 +75,9 @@ public class Main {
             System.out.println("Unsupported object type: " + header);
             return;
           }
-          
+
           String content = new String(outputBytes, nullByteIndex + 1, outputBytes.length - nullByteIndex - 1);
-          System.out.println(content);
+          System.out.print(content);
         }
         catch (IOException e) {
           System.out.println("Error reading object: " + e.getMessage());
