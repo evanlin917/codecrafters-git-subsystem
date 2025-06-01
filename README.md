@@ -75,14 +75,21 @@ so far (e.g. `init`, `hash-object`, `cat-file`) to help verify your implementati
 This project currently implements the following Git subsystem commands:
 * `git init`
   Initializes a new Git repository by creating the `.git` directory 
-  along with the minimum structure required, such as:
+  along with the minimum required structure:
   - `.git/` - Root directory for Git metadata
   - `.git/objects/` - Directory for all Git objects (blobs, commits, trees)
-  - `.git/refs/` - Directory for storing references to branches
-  - `.git/HEAD` - File pointing to the default branch (`ref: refs/heads/main)
+  - `.git/refs/` - Stores references to branches
+  - `.git/HEAD` - Points to default branch (`ref: refs/heads/main`)
 * `git cat-file -p <hash>`
   Reads and pretty-prints the contents of a Git object to standard
-  output (current supports only blob objects).   
+  output (Currently supports only blob objects).   
 * `git hash-object -w <file>`
-  Writes a blob object to the Git object store, computing and returning
-  the SHA-1 hash of the content   
+  Computes the SHA-1 hash of the file's contents, writes it to a `blob` 
+  object to the Git object store, and prints the resulting hash.
+* `git ls-tree <tree_hash>`
+  Displays the contents of the tree object identified by `<tree_hash>`. 
+  Each entry includes the mode (file permissions), object type (`blob` 
+  or `tree`), SHA-1 hash (in hexadecimal), and the name of the file or directory.
+  - With the `--name-only` flag, only the names of the entries are 
+    printed, one per line.
+  
