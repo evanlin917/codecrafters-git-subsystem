@@ -5,6 +5,23 @@ import java.util.zip.Inflater;
 import java.util.zip.Deflater;
 import java.io.ByteArrayOutputStream;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+
+class TreeEntry {
+  String mode;
+  String type;
+  String sha;
+  String name;
+
+  TreeEntry(String mode, String type, String sha, String name) {
+    this.mode = mode;
+    this.type = type;
+    this.sha = sha;
+    this.name = name;
+  }
+}
 
 public class Main {
   public static void main(String[] args){
@@ -26,6 +43,7 @@ public class Main {
           head.createNewFile();
           Files.write(head.toPath(), "ref: refs/heads/main\n".getBytes());
           System.out.println("Initialized git directory");
+          return;
         } catch (IOException e) {
           throw new RuntimeException(e);
         }
@@ -80,6 +98,7 @@ public class Main {
 
           String content = new String(outputBytes, nullByteIndex + 1, outputBytes.length - nullByteIndex - 1);
           System.out.print(content);
+          return;
         }
         catch (IOException e) {
           System.out.println("Error reading object: " + e.getMessage());
@@ -148,11 +167,105 @@ public class Main {
           }
 
           System.out.print(hashStr);
+          return;
         }
         catch (IOException e) {
           System.out.println("Error reading file: " + e.getMessage());
         } catch (Exception e) {
           System.out.println("Error hashing object: " + e.getMessage());
+        }
+      }
+      case "ls-tree" -> {
+        if (args.length < 2) {
+          System.out.println("Usage: ls-tree [--name-only] <tree_sha>");
+          return;
+        }
+
+        boolean nameOnly = false;
+        final String sha;
+        
+        if (args[1].equals("--name-only")) {
+          if (args.length < 3) {
+            System.out.println("Usage: ls-tree --name-only <tree_sha>");
+            return;
+          }
+          nameOnly = true;
+          sha = args[2];
+        } else {
+          sha = args[1];
+        }
+
+        final String dir = sha.substring(0, 2);
+        final String file = sha.substring(2);
+        final File objectFile = new File(".git/objects/" + dir + "/" + file);
+        if (!objectFile.exists()) {
+          System.out.println("Object not found: " + sha);
+          return;
+        }
+
+        try {
+          Inflater inflater = new Inflater();
+          byte[] compressedData = Files.readAllBytes(objectFile.toPath());
+          inflater.setInput(compressedData);
+          ByteArrayOutputStream out = new ByteArrayOutputStream();
+          byte[] buffer = new byte[1024];
+          while (!inflater.finished()) {
+            int count = inflater.inflate(buffer);
+            out.write(buffer, 0, count);
+          }
+          inflater.end();
+          byte[] decompressed = out.toByteArray();
+
+          int nullIndex = 0;
+          while (decompressed[nullIndex] != 0) nullIndex++;
+          String header = new String(decompressed, 0, nullIndex);
+          if (!header.startsWith("tree")) {
+            System.out.println("Not a tree object");
+            return;
+          }
+
+          ArrayList<TreeEntry> entries = new ArrayList<>();
+          int i = nullIndex + 1;
+          while (i < decompressed.length) {
+            int modeStart = i;
+            while (decompressed[i] != ' ') i++;
+            String mode = new String(decompressed, modeStart, i - modeStart);
+
+            int nameStart = ++i;
+            while (decompressed[i] != 0) i++;
+            String name = new String(decompressed, nameStart, i - nameStart);
+            
+            i++;
+            byte[] shaBytes = new byte[20];
+            System.arraycopy(decompressed, i, shaBytes, 0, 20);
+            i += 20;
+
+            StringBuilder hexSha = new StringBuilder();
+            for (byte b : shaBytes) {
+              hexSha.append(String.format("%02x", b));
+            }
+
+            if (nameOnly) {
+              System.out.println(name);
+            } else {
+              String type = switch (mode) {
+                case "40000" -> "tree";
+                case "100644", "100755", "120000" -> "blob";
+                default -> "unknown";
+              };
+              entries.add(new TreeEntry(mode, type, hexSha.toString(), name));
+            }
+          }
+
+          if (!nameOnly) {
+            Collections.sort(entries, Comparator.comparing(e -> e.name));
+            for (TreeEntry entry : entries) {
+              System.out.printf("%s %s %s\t%s\n", entry.mode, entry.type, entry.sha, entry.name);
+            }
+          }
+          return;
+        } catch (Exception e) {
+          System.out.println("Error reading tree object: " + e.getMessage());
         }
       }
       default -> System.out.println("Unknown command: " + command);
