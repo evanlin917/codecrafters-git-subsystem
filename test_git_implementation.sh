@@ -119,6 +119,77 @@ test_hash_and_cat() {
     fi    
 }
 
+# Testing ls-tree with --name-only flag given
+test_ls_tree_name_only() {
+    echo -e "\n${GREEN}Testing 'ls-tree' full output format (with --name-only)${NC}"
+
+    mkdir repo1
+    cd repo1
+    git init -q
+    echo "hello" > a.txt
+    echo "world" > b.txt
+    git add a.txt b.txt
+    git commit -m "Added files a and b" > /dev/null
+
+    tree_sha=$(git rev-parse HEAD^{tree})
+    echo -e "${GREEN}✓ Got tree SHA: $tree_sha${NC}"
+
+    ls_output=$($MYGIT_PATH ls-tree --name-only "$tree_sha")
+
+    cd ..
+
+    if [[ "$ls_output" == *"a.txt"* && "$ls_output" == *"b.txt"* ]]; then
+        echo -e "${GREEN}✓ ls-tree returned correct filenames${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ ls-tree did not return expected filenames${NC}"
+        echo "Output was:"
+        echo "$ls_output"
+        return 1
+    fi
+}
+
+# Test ls-tree without --name-only flag given
+test_ls_tree_full_format() {
+    echo -e "\n${GREEN}Testing 'ls-tree' full output format (no --name-only)${NC}"
+
+    mkdir repo2
+    cd repo2
+    git init -q
+
+    echo "file a" > a.txt
+    echo "file b" > b.txt
+    git add a.txt b.txt
+    git commit -m "add files" -q
+
+    tree_sha=$(git rev-parse HEAD^{tree})
+    echo -e "${GREEN}✓ Got tree SHA: $tree_sha${NC}"
+
+    ls_output=$($MYGIT_PATH ls-tree "$tree_sha")
+
+    if [[ "$ls_output" != *"a.txt"* || "$ls_output" != *"b.txt"* ]]; then
+        echo -e "${RED}❌ ls-tree output missing expected filenames${NC}"
+        return 1
+    fi
+
+    if ! echo "$ls_output" | grep -Eq '100644 blob [a-f0-9]{40}\s+a.txt'; then
+        echo -e "${RED}❌ Output for a.txt not in expected format${NC}"
+        echo "Got:"
+        echo "$tree_output"
+        return 1
+    fi
+
+    if ! echo "$ls_output" | grep -Eq '100644 blob [a-f0-9]{40}\s+b.txt'; then
+        echo -e "${RED}❌ Output for b.txt not in expected format${NC}"
+        echo "Got:"
+        echo "$ls_output"
+        return 1
+    fi
+
+    echo -e "${GREEN}✓ ls-tree output format is correct${NC}"
+    return 0
+}
+
 # Main testing function
 main() {
     echo -e "${GREEN}Starting Git implementation tests...${NC}"
@@ -139,6 +210,18 @@ main() {
         ((tests_failed++))
     fi
     
+    if test_ls_tree_name_only; then 
+        ((tests_passed++)) 
+    else 
+        ((tests_failed++)) 
+    fi
+
+    if test_ls_tree_full_format; then
+        ((tests_passed++))
+    else
+        ((tests_failed++))
+    fi
+
     # Print summary
     echo -e "\n${GREEN}Tests completed!${NC}"
     echo -e "${GREEN}Tests passed: $tests_passed${NC}"
