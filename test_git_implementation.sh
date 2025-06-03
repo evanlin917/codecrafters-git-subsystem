@@ -236,6 +236,46 @@ test_write_tree() {
     fi
 }
 
+# Test commit-tree
+test_commit_tree() {
+    echo -e "\n${GREEN}Testing 'commit-tree' command with -p and -m options${NC}"
+    mkdir ct_repo && cd ct_repo
+    $MYGIT_PATH init > /dev/null
+
+    echo "data" > file.txt
+    $MYGIT_PATH hash-object -w file.txt > /dev/null
+    tree_sha=$($MYGIT_PATH write-tree)
+    commit1=$($MYGIT_PATH commit-tree "$tree_sha" -m "Initial commit")
+
+    if [ -z "$commit1" ] || [ ${#commit1} -ne 40 ]; then
+        echo -e "${RED}❌ Failed to create initial commit${NC}"
+        cd .. && return 1
+    fi
+    echo -e "${GREEN}✓ Initial commit created: $commit1${NC}"
+
+    echo "data modified" > file.txt
+    $MYGIT_PATH hash-object -w file.txt > /dev/null
+    tree_sha2=$($MYGIT_PATH write-tree)
+
+    commit2=$($MYGIT_PATH commit-tree "$tree_sha2" -p "$commit1" -m "Second commit")
+
+    if [ -z "$commit2" ] || [ ${#commit2} -ne 40 ]; then
+        echo -e "${RED}❌ Failed to create second commit with inline -p and -m${NC}"
+        cd .. && return 1
+    fi
+    echo -e "${GREEN}✓ Second commit created (combined flags): $commit2${NC}"
+
+    commit3=$($MYGIT_PATH commit-tree "$tree_sha2" -p "$commit1" -m "Third commit")
+
+    if [ -z "$commit3" ] || [ ${#commit3} -ne 40 ]; then
+        echo -e "${RED}❌ Failed to create third commit with separate -p and -m${NC}"
+        cd .. && return 1
+    fi
+    echo -e "${GREEN}✓ Third commit created (separate flags): $commit3${NC}"
+
+    cd .. && return 0
+}
+
 # Main testing function
 main() {
     echo -e "${GREEN}Starting Git implementation tests...${NC}"
@@ -269,6 +309,12 @@ main() {
     fi
 
     if test_write_tree; then
+        ((tests_passed++))
+    else
+        ((tests_failed++))
+    fi
+
+    if test_commit_tree; then
         ((tests_passed++))
     else
         ((tests_failed++))
