@@ -8,6 +8,9 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.time.Instant;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 class TreeEntry {
   String mode;
@@ -375,6 +378,108 @@ public class Main {
           return;
         } catch (Exception e) {
           System.out.println("Error writing tree: " + e.getMessage());
+        }
+      }
+      case "commit-tree" -> {
+        if (args.length < 4) {
+          System.out.println("Usage: commit-tree <tree_sha> [-p <parent_sha>] -m <message>");
+          return;
+        }
+
+        final String treeSha = args[1];
+        String parentSha = null;
+        String message = null;
+
+        for (int i = 2; i < args.length; i++) {
+          switch(args[i]) {
+            case "-p" -> {
+              if (i + 1 < args.length) {
+                parentSha = args[i + 1];
+                i++;
+              } else {
+                System.out.println("Missing value for -p");
+                return;
+              }
+            }
+            case "-m" -> {
+              if (i + 1 < args.length) {
+                message = args[i + 1];
+                i++;
+              } else {
+                System.out.println("Missing commit message");
+                return;
+              }
+            }
+            default -> {
+              System.out.println("Unknown argument: " + args[i]);
+              return;
+            }
+          }
+        }
+
+        if (message == null) {
+          System.out.println("Missing -m <message>");
+          return;
+        }
+
+        final long timestamp = Instant.now().getEpochSecond();
+        final String timezone = new SimpleDateFormat("Z").format(new Date());
+        final String author = "You <you@example.com>";
+        
+        try {
+          StringBuilder commitBody = new StringBuilder();
+          commitBody.append("tree ").append(treeSha).append("\n");
+          if (parentSha != null) {
+            commitBody.append("parent ").append(parentSha).append("\n");
+          }
+          commitBody.append("author ").append(author).append(" ").append(timestamp).append(" ").append(timezone).append("\n");
+          commitBody.append("committer ").append(author).append(" ").append(timestamp).append(" ").append(timezone).append("\n");
+          commitBody.append("\n").append(message).append("\n");
+
+          byte[] bodyBytes = commitBody.toString().getBytes("UTF-8");
+          String header = "commit " + bodyBytes.length + "\0";
+          byte[] headerBytes = header.getBytes("UTF-8");
+
+          byte[] fullCommit = new byte[headerBytes.length + bodyBytes.length];
+          System.arraycopy(headerBytes, 0, fullCommit, 0, headerBytes.length);
+          System.arraycopy(bodyBytes, 0, fullCommit, headerBytes.length, bodyBytes.length);
+
+          MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+          byte[] hash = sha1.digest(fullCommit);
+          StringBuilder hexHash = new StringBuilder();
+          for (byte b : hash) {
+            hexHash.append(String.format("%02x", b));
+          }
+          String hashStr = hexHash.toString();
+
+          Deflater deflater = new Deflater();
+          deflater.setInput(fullCommit);
+          deflater.finish();
+
+          ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
+          byte[] buffer = new byte[1024];
+          while (!deflater.finished()) {
+            int count = deflater.deflate(buffer);
+            compressedOutput.write(buffer, 0, count);
+          }
+          deflater.end();
+
+          byte[] compressedBlob = compressedOutput.toByteArray();
+
+          String dir = hashStr.substring(0, 2);
+          String fileName = hashStr.substring(2);
+          File objectDir = new File(".git/objects/" + dir);
+          objectDir.mkdirs();
+
+          File objectFile = new File(objectDir, fileName);
+          if (!objectFile.exists()) {
+            Files.write(objectFile.toPath(), compressedBlob);
+          }
+
+          System.out.println(hashStr);
+          return;
+        } catch (Exception e) {
+          System.out.println("Error writing commit: " + e.getMessage());
         }
       }
       default -> System.out.println("Unknown command: " + command);
