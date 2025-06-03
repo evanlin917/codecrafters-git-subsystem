@@ -92,4 +92,10 @@ This project currently implements the following Git subsystem commands:
   or `tree`), SHA-1 hash (in hexadecimal), and the name of the file or directory.
   - With the `--name-only` flag, only the names of the entries are 
     printed, one per line.
-  
+* `git write-tree`
+  Constructs a tree object from the current state of the working 
+  directory and writes it to the Git object store. It recursively creates
+  tree objects for subdirectories, adds blob entries for files, and 
+  outputs SHA-1 hash of the root tree object.
+  - Allows for snapshotting of project structure prior to creating a 
+    commit within the Git subsystem.
