@@ -190,6 +190,52 @@ test_ls_tree_full_format() {
     return 0
 }
 
+# Test write-tree
+test_write_tree() {
+    echo -e "\n${GREEN}Testing 'write-tree' command${NC}"
+
+    # Clean test setup
+    mkdir wt_repo && cd wt_repo
+    $MYGIT_PATH init > /dev/null
+
+    # Create and write files
+    echo "foo" > file1.txt
+    echo "bar" > file2.txt
+
+    # Optional: hash manually if your implementation requires it
+    $MYGIT_PATH hash-object -w file1.txt > /dev/null
+    $MYGIT_PATH hash-object -w file2.txt > /dev/null
+
+    # Run write-tree
+    tree_sha=$($MYGIT_PATH write-tree)
+    echo -e "${GREEN}✓ Got tree SHA: $tree_sha${NC}"
+
+    if [ -z "$tree_sha" ] || [ ${#tree_sha} -ne 40 ]; then
+        echo -e "${RED}❌ Invalid tree SHA returned: $tree_sha${NC}"
+        return 1
+    fi
+
+    # Check object file exists
+    tree_obj=".git/objects/${tree_sha:0:2}/${tree_sha:2}"
+    if [ ! -f "$tree_obj" ]; then
+        echo -e "${RED}❌ Tree object file not found: $tree_obj${NC}"
+        return 1
+    fi
+
+    echo -e "${GREEN}✓ Tree object exists${NC}"
+
+    # Check contents via ls-tree
+    ls_output=$($MYGIT_PATH ls-tree --name-only "$tree_sha")
+    if [[ "$ls_output" == *"file1.txt"* && "$ls_output" == *"file2.txt"* ]]; then
+        echo -e "${GREEN}✓ ls-tree shows correct files${NC}"
+        cd .. && return 0
+    else
+        echo -e "${RED}❌ ls-tree does not show expected files${NC}"
+        echo "$ls_output"
+        cd .. && return 1
+    fi
+}
+
 # Main testing function
 main() {
     echo -e "${GREEN}Starting Git implementation tests...${NC}"
@@ -217,6 +263,12 @@ main() {
     fi
 
     if test_ls_tree_full_format; then
+        ((tests_passed++))
+    else
+        ((tests_failed++))
+    fi
+
+    if test_write_tree; then
         ((tests_passed++))
     else
         ((tests_failed++))
