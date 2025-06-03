@@ -99,3 +99,14 @@ This project currently implements the following Git subsystem commands:
   outputs SHA-1 hash of the root tree object.
   - Allows for snapshotting of project structure prior to creating a 
     commit within the Git subsystem.
+* `git commit-tree <tree_hash> [-p <parent_hash>] -m <message>`
+  Creates a new commit object from a given tree object hash, optionally
+  linking it to one or more parent commits and associating it with a
+  commit message.
+  - The `-p` flag can be used one or more times to specify parent 
+    commit hashes.
+  - The `-m` flag is used to pass the commit message.
+  - The resulting commit object includes references to the tree, parents
+    (if any), author/committer metadata (with fixed placeholder values),
+    and the message.
+  - The SHA-1 hash of the newly created commit object is printed.    
