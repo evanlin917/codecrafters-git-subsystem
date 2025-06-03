@@ -268,6 +268,115 @@ public class Main {
           System.out.println("Error reading tree object: " + e.getMessage());
         }
       }
+      case "write-tree" -> {
+        if (args.length > 1) {
+          System.out.println("Usage: write-tree");
+          return;
+        }
+
+        try {
+          File rootDir = new File(".");
+          ArrayList<TreeEntry> entries = new ArrayList<>();
+
+          File[] children = rootDir.listFiles();
+          if (children != null) {
+            for (File child : children) {
+              if (child.getName().equals(".git")) {
+                continue;
+              }
+
+              if (child.isFile()) {
+                byte[] content = Files.readAllBytes(child.toPath());
+                String header = "blob " + content.length + "\0";
+                byte[] headerBytes = header.getBytes("UTF-8");
+                byte[] blob = new byte[headerBytes.length + content.length];
+                System.arraycopy(headerBytes, 0, blob, 0, headerBytes.length);
+                System.arraycopy(content, 0, blob, headerBytes.length, content.length);
+
+                MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+                byte[] hash = sha1.digest(blob);
+                StringBuilder hexHash = new StringBuilder();
+                for (byte b : hash) {
+                  hexHash.append(String.format("%02x", b));
+                }
+                String hashStr = hexHash.toString();
+                String dir = hashStr.substring(0, 2);
+                String fileName = hashStr.substring(2);
+
+                File objectDir = new File(".git/objects/" + dir);
+                objectDir.mkdirs();
+                File objectFile = new File(objectDir, fileName);
+                if (!objectFile.exists()) {
+                  Deflater deflater = new Deflater();
+                  deflater.setInput(blob);
+                  deflater.finish();
+                  ByteArrayOutputStream out = new ByteArrayOutputStream();
+                  byte[] buffer = new byte[1024];
+                  while (!deflater.finished()) {
+                    int count = deflater.deflate(buffer);
+                    out.write(buffer, 0, count);
+                  }
+                  deflater.end();
+                  Files.write(objectFile.toPath(), out.toByteArray());
+                }
+
+                entries.add(new TreeEntry("100644", "blob", hashStr, child.getName()));
+              }
+            }
+          }
+
+          Collections.sort(entries, Comparator.comparing(e -> e.name));
+
+          ByteArrayOutputStream treeContent = new ByteArrayOutputStream();
+          for (TreeEntry entry : entries) {
+            treeContent.write((entry.mode + " " + entry.name).getBytes("UTF-8"));
+            treeContent.write(0);
+            for (int i = 0; i < entry.sha.length(); i += 2) {
+              treeContent.write(Integer.parseInt(entry.sha.substring(i, i + 2), 16));
+            }
+          }
+
+          byte[] treeData = treeContent.toByteArray();
+          String header = "tree " + treeData.length + "\0";
+          byte[] headerBytes = header.getBytes("UTF-8");
+
+          byte[] treeObject = new byte[headerBytes.length + treeData.length];
+          System.arraycopy(headerBytes, 0, treeObject, 0, headerBytes.length);
+          System.arraycopy(treeData, 0, treeObject, headerBytes.length, treeData.length);
+
+          MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+          byte[] treeHash = sha1.digest(treeObject);
+          StringBuilder hexTreeHash = new StringBuilder();
+          for (byte b : treeHash) {
+            hexTreeHash.append(String.format("%02x", b));
+          }
+          String treeHashStr = hexTreeHash.toString();
+
+          String treeDir = treeHashStr.substring(0, 2);
+          String treeFile = treeHashStr.substring(2);
+          File treeObjectDir = new File(".git/objects/" + treeDir);
+          treeObjectDir.mkdirs();
+          File treeObjectFile = new File(treeObjectDir, treeFile);
+          if (!treeObjectFile.exists()) {
+            Deflater deflater = new Deflater();
+            deflater.setInput(treeObject);
+            deflater.finish();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            while (!deflater.finished()) {
+              int count = deflater.deflate(buffer);
+              out.write(buffer, 0, count);
+            }
+            deflater.end();
+            Files.write(treeObjectFile.toPath(), out.toByteArray());
+          }
+
+          System.out.println(treeHashStr);
+          return;
+        } catch (Exception e) {
+          System.out.println("Error writing tree: " + e.getMessage());
+        }
+      }
       default -> System.out.println("Unknown command: " + command);
     }
   }
