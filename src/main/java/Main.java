@@ -11,6 +11,8 @@ import java.util.Comparator;
 import java.time.Instant;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Stack;
+import java.nio.file.StandardCopyOption;
 
 class TreeEntry {
   String mode;
@@ -480,6 +482,56 @@ public class Main {
           return;
         } catch (Exception e) {
           System.out.println("Error writing commit: " + e.getMessage());
+        }
+      }
+      case "clone" -> {
+        if (args.length != 3) {
+          System.out.println("Usage: clone <source_path> <target_dir>");
+          return;
+        }
+
+        String srcPath = args[1];
+        String tgtPath = args[2];
+
+        File srcGitDir = new File(srcPath, ".git");
+        if (!srcGitDir.exists() || !srcGitDir.isDirectory()) {
+          System.out.println("Invalid source repository to clone from");
+          return;
+        }
+
+        File tgtGitDir = new File(tgtPath, ".git");
+
+        try {
+          Stack<File> stack = new Stack<>();
+          Stack<File> tgtStack = new Stack<>();
+          stack.push(srcGitDir);
+          tgtStack.push(tgtGitDir);
+
+          while (!stack.isEmpty()) {
+            File src = stack.pop();
+            File tgt = tgtStack.pop();
+
+            if (src.isDirectory()) {
+              if (!tgt.exists()) {
+                tgt.mkdirs();
+              }
+
+              File[] children = src.listFiles();
+              if (children != null) {
+                for (File child : children) {
+                  stack.push(child);
+                  tgtStack.push(new File(tgt, child.getName()));
+                }
+              }
+            } else {
+              Files.copy(src.toPath(), tgt.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+          }
+
+          System.out.println("Cloned repository to " + tgtPath);
+          return;
+        } catch (IOException e) {
+          System.out.println("Error cloning repository: " + e.getMessage());
         }
       }
       default -> System.out.println("Unknown command: " + command);
